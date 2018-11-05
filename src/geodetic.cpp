@@ -4,6 +4,7 @@
 
 extern "C" {
 #include <liblwgeom.h>
+#include "liblwgeom/lwgeodetic_tree.h"
 }
 
 using namespace Rcpp;
@@ -88,6 +89,7 @@ Rcpp::List CPL_geodetic_distance(Rcpp::List sfc1, Rcpp::List sfc2, double semi_m
 	std::vector<LWGEOM *> lw1 = lwgeom_from_sfc(sfc1);
 	std::vector<LWGEOM *> lw2 = lwgeom_from_sfc(sfc2);
 	SPHEROID s;
+
 	if (semi_minor > 0.0)
 		spheroid_init(&s, semi_major, semi_minor);
 	else
@@ -106,9 +108,15 @@ Rcpp::List CPL_geodetic_distance(Rcpp::List sfc1, Rcpp::List sfc2, double semi_m
 	} else {
 		Rcpp::NumericMatrix mat(sfc1.size(), sfc2.size());
 		for (size_t i = 0; i < lw1.size(); i++) {
+			CIRC_NODE* tree1 = lwgeom_calculate_circ_tree(lw1[i]);
+
 			for (size_t j = 0; j < lw2.size(); j++) {
-				mat(i, j) = lwgeom_distance_spheroid(lw1[i], lw2[j], &s, tolerance);
+				CIRC_NODE* tree2 = lwgeom_calculate_circ_tree(lw2[j]);
+				mat(i, j) = circ_tree_distance_tree(tree1, tree2, &s, tolerance);
+				circ_tree_free(tree2);
 			}
+			circ_tree_free(tree1);
+
 			Rcpp::checkUserInterrupt();
 		}
 		out(0) = mat;
